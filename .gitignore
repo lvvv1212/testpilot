@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# pytest
+.pytest_cache/
+
+# Allure 报告产物
+allure-results/
+allure-report/
+
+# IDE
+.idea/
+.vscode/
+
+# 本地配置与密钥（token、密码等一律不进库）
+.env
