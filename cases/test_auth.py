@@ -1,15 +1,20 @@
-"""用户模块用例：注册 → 登录 → 鉴权（阶段 1 最小闭环）。
+"""用户模块用例：注册、登录、鉴权。
 
-被测接口：
-- POST /api/user/register  注册（重复用户名/邮箱会返回业务码 500）
-- POST /api/user/login     登录，成功返回 data.token
-
-注意：被测系统对业务异常仍返回 HTTP 200，仅 body.code != 200，
-因此断言需同时校验 HTTP 状态码（协议层）与业务码（业务层）。
+覆盖：
+- 注册 → 登录 → 拿 token（正链路）
+- 登录负向（数据驱动：密码错误 / 空密码 / 用户不存在）
+- 带 token 访问鉴权接口（登录态复用演示）
 """
 import time
 
-from config.config import CODE_SUCCESS
+import pytest
+
+from config.config import TEST_USERNAME
+from utils.assertions import assert_ok, assert_fail
+from utils.data_loader import load_json
+
+# 登录负向用例数据（数据驱动：逻辑与数据分离）
+_LOGIN_FAIL_CASES = load_json("login_cases.json")
 
 
 def _unique_username(prefix="tester"):
@@ -22,41 +27,41 @@ def test_register_and_login(http, base_url):
     username = _unique_username()
     password = "Test@123456"
 
-    # 1. 注册
     resp = http.post(f"{base_url}/api/user/register", json={
         "username": username,
         "password": password,
         "email": f"{username}@example.com",
     })
-    assert resp.status_code == 200, f"注册 HTTP 状态异常: {resp.status_code}"
-    assert resp.json()["code"] == CODE_SUCCESS, f"注册失败: {resp.text}"
+    assert_ok(resp)
 
-    # 2. 登录
     resp = http.post(f"{base_url}/api/user/login", json={
         "username": username,
         "password": password,
     })
-    assert resp.status_code == 200, f"登录 HTTP 状态异常: {resp.status_code}"
-    body = resp.json()
-    assert body["code"] == CODE_SUCCESS, f"登录失败: {resp.text}"
+    body = assert_ok(resp)
     assert body["data"]["token"], "登录成功但未返回 token"
 
 
-def test_login_with_wrong_password(http, base_url):
-    """负向用例：错误密码登录应返回业务码非 200，且提示「用户名或密码错误」。"""
-    username = _unique_username(prefix="wrongpwd")
-
-    http.post(f"{base_url}/api/user/register", json={
-        "username": username,
-        "password": "Right@123",
-        "email": f"{username}@example.com",
-    })
-
+@pytest.mark.parametrize("case", _LOGIN_FAIL_CASES, ids=lambda c: c["name"])
+def test_login_negative(http, base_url, case):
+    """负向用例：异常凭据登录应业务失败，且提示「用户名或密码错误」。"""
+    username = case.get("username", TEST_USERNAME)
     resp = http.post(f"{base_url}/api/user/login", json={
         "username": username,
-        "password": "Wrong@123",
+        "password": case["password"],
     })
-    assert resp.status_code == 200  # 业务异常仍返回 HTTP 200（全局异常处理器）
-    body = resp.json()
-    assert body["code"] != CODE_SUCCESS, f"错误密码不应登录成功: {resp.text}"
-    assert "用户名或密码错误" in body["message"]
+    assert_fail(resp, message=case["message"])
+
+
+def test_get_user_info_with_token(http, base_url, auth_headers):
+    """鉴权接口：带 token 访问 /api/user/info，应返回当前登录用户。"""
+    resp = http.get(f"{base_url}/api/user/info", headers=auth_headers)
+    body = assert_ok(resp)
+    assert body["data"]["username"] == TEST_USERNAME
+
+
+def test_get_user_info_without_token(http, base_url):
+    """鉴权接口：不带 token 访问应返回 401（拦截器直接写 401 响应）。"""
+    resp = http.get(f"{base_url}/api/user/info")
+    assert resp.status_code == 401, f"未携带 token 应返回 401，实际: {resp.status_code}"
+    assert resp.json()["code"] == 401

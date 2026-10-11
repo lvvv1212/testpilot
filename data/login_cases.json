@@ -1,0 +1,5 @@
+[
+  {"name": "密码错误", "password": "WrongPass@123", "message": "用户名或密码错误"},
+  {"name": "空密码", "password": "", "message": "用户名或密码错误"},
+  {"name": "用户不存在", "username": "ghost_user_9527", "password": "X@123456", "message": "用户名或密码错误"}
+]

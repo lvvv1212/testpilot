@@ -14,3 +14,7 @@ CODE_UNAUTHORIZED = 401
 
 # 请求超时（秒），用例需要时传入
 TIMEOUT = 10
+
+# 固定测试账号（登录态复用：session 级只登录一次，供鉴权用例共享）
+TEST_USERNAME = os.getenv("LIFEARCHIVE_TEST_USER", "testpilot_user")
+TEST_PASSWORD = os.getenv("LIFEARCHIVE_TEST_PASS", "Test@123456")
