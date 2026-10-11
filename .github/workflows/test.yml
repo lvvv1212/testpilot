@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       # 1. 检出 TestPilot 测试框架
       - name: Checkout TestPilot
@@ -29,6 +31,8 @@ jobs:
           DB_PASSWORD: root
           DEEPSEEK_API_KEY: ci-dummy-key
           LIFEARCHIVE_JWT_SECRET: ci-test-secret-0123456789abcdef0123456789abcdef
+          # 海外 runner 用中央仓库构建，避免阿里云镜像 502
+          MAVEN_MIRROR: central
 
       # 4. 等待后端健康检查就绪
       - name: Wait for backend
