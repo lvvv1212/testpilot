@@ -4,7 +4,7 @@
 
 [![API Tests](https://github.com/lvvv1212/testpilot/actions/workflows/test.yml/badge.svg)](https://github.com/lvvv1212/testpilot/actions/workflows/test.yml)
 
-> 项目处于搭建阶段。当前进度见下方「进度」。
+> 项目已完成：35 条用例覆盖 14 个接口，GitHub Actions 全量回归全绿。
 
 ## 被测系统
 
@@ -53,8 +53,8 @@ Windows 下可直接双击 `run_allure.bat` 一键生成（需先安装 [Allure 
 - [x] 阶段 0：脚手架 + venv + 依赖 + Git 初始化
 - [x] 阶段 1：被测系统启动，最小闭环跑通（健康检查 + 注册登录 + 错误密码）
 - [x] 阶段 2：核心封装（登录态复用 / 数据驱动 / 请求重试 / 统一断言）
-- [ ] 阶段 3：用例设计（120+ 条）— 已覆盖 user/memory/timeline/stats/ai/story/assistant 七模块（35 条），待补图片上传与更多边界组合
-- [x] 阶段 4：Allure 报告 + GitHub Actions — 本地报告已生成，CI 已推送（首次运行待验证）
+- [x] 阶段 3：用例设计 — 覆盖 user / memory / timeline / stats / ai / story / assistant 七模块，共 35 条
+- [x] 阶段 4：Allure 报告 + GitHub Actions — 本地报告已生成，CI 全绿（run#3 success）
 - [x] 阶段 5：缺陷挖掘与交付 — 缺陷报告见 [docs/DEFECTS.md](docs/DEFECTS.md)
 
 ## 测试中发现的缺陷
