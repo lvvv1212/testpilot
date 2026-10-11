@@ -1,0 +1,76 @@
+name: API Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 检出 TestPilot 测试框架
+      - name: Checkout TestPilot
+        uses: actions/checkout@v4
+
+      # 2. 检出被测系统 LifeArchive（公开仓库）
+      - name: Checkout LifeArchive (被测系统)
+        uses: actions/checkout@v4
+        with:
+          repository: lvvv1212/life-archive
+          path: life-archive
+
+      # 3. 起被测系统：MySQL + Redis + Spring Boot 后端（Docker Compose）
+      - name: Start backend under test
+        working-directory: life-archive
+        run: docker compose up -d --build
+        env:
+          DB_PASSWORD: root
+          DEEPSEEK_API_KEY: ci-dummy-key
+          LIFEARCHIVE_JWT_SECRET: ci-test-secret-0123456789abcdef0123456789abcdef
+
+      # 4. 等待后端健康检查就绪
+      - name: Wait for backend
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:8080/api/health > /dev/null; then
+              echo "backend is ready"
+              break
+            fi
+            echo "waiting for backend... ($i)"
+            sleep 5
+          done
+          curl -sf http://localhost:8080/api/health
+
+      # 5. 安装 Python 依赖并运行测试
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest --alluredir=allure-results
+
+      # 6. 生成 Allure HTML 报告
+      - name: Setup Allure
+        if: always()
+        run: |
+          curl -o allure.tgz -sL https://github.com/allure-framework/allure2/releases/download/2.46.1/allure-2.46.1.tgz
+          tar -zxvf allure.tgz
+          echo "$(pwd)/allure-2.46.1/bin" >> $GITHUB_PATH
+
+      - name: Generate Allure report
+        if: always()
+        run: allure generate allure-results -o allure-report --clean
+
+      # 7. 发布报告到 GitHub Pages（gh-pages 分支）
+      - name: Deploy report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./allure-report

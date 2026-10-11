@@ -1,3 +1,4 @@
 # 阶段 0 最小依赖；后续阶段按需追加 allure-pytest / pytest-html 等
 pytest>=7.4
 requests>=2.31
+allure-pytest>=2.13
