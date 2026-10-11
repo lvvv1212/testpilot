@@ -1,16 +1,25 @@
-"""全局 fixture：会话级 HTTP 客户端、请求重试、登录态复用。
+"""全局 fixture：会话级 HTTP 客户端、请求重试、登录态复用、记忆模块客户端。
 
-三个核心能力：
-1. http         —— 会话级 requests.Session，挂载重试适配器（网络抖动自动重试）
-2. base_url     —— 被测系统根地址
-3. auth_headers —— 登录固定测试账号，返回带 token 的请求头（session 级只登录一次）
+能力清单：
+1. http          —— 会话级 requests.Session，挂载重试适配器（网络抖动自动重试）
+2. base_url      —— 被测系统根地址
+3. auth_headers  —— 登录主测试账号（session 级只登录一次）
+4. other_auth_headers —— 登录第二个测试账号（越权用例用）
+5. memory        —— 记忆模块客户端（function 级，自动清理本用例创建的记忆）
 """
 import pytest
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from config.config import BASE_URL, TEST_USERNAME, TEST_PASSWORD
+from apis.memory_api import MemoryAPI
+from config.config import (
+    BASE_URL,
+    TEST_USERNAME,
+    TEST_PASSWORD,
+    OTHER_USERNAME,
+    OTHER_PASSWORD,
+)
 from utils.assertions import assert_ok
 
 
@@ -35,6 +44,28 @@ def _build_session():
     return session
 
 
+def _login_headers(http, base_url, username, password):
+    """登录指定账号（不存在则先注册），返回带 token 的请求头。"""
+    resp = http.post(f"{base_url}/api/user/login", json={
+        "username": username,
+        "password": password,
+    })
+    if resp.json()["code"] != 200:
+        http.post(f"{base_url}/api/user/register", json={
+            "username": username,
+            "password": password,
+            "email": f"{username}@example.com",
+        })
+        resp = http.post(f"{base_url}/api/user/login", json={
+            "username": username,
+            "password": password,
+        })
+
+    body = assert_ok(resp)
+    token = body["data"]["token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
 @pytest.fixture(scope="session")
 def base_url():
     """被测系统根地址。"""
@@ -51,23 +82,19 @@ def http():
 
 @pytest.fixture(scope="session")
 def auth_headers(http, base_url):
-    """登录固定测试账号，返回带 token 的请求头；session 级复用，避免每个用例重复登录。"""
-    resp = http.post(f"{base_url}/api/user/login", json={
-        "username": TEST_USERNAME,
-        "password": TEST_PASSWORD,
-    })
-    if resp.json()["code"] != 200:
-        # 首次运行账号不存在 → 先注册再登录
-        http.post(f"{base_url}/api/user/register", json={
-            "username": TEST_USERNAME,
-            "password": TEST_PASSWORD,
-            "email": f"{TEST_USERNAME}@example.com",
-        })
-        resp = http.post(f"{base_url}/api/user/login", json={
-            "username": TEST_USERNAME,
-            "password": TEST_PASSWORD,
-        })
+    """主测试账号的鉴权头（session 级只登录一次）。"""
+    return _login_headers(http, base_url, TEST_USERNAME, TEST_PASSWORD)
 
-    body = assert_ok(resp)
-    token = body["data"]["token"]
-    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture(scope="session")
+def other_auth_headers(http, base_url):
+    """第二个测试账号的鉴权头（越权用例用）。"""
+    return _login_headers(http, base_url, OTHER_USERNAME, OTHER_PASSWORD)
+
+
+@pytest.fixture
+def memory(http, base_url, auth_headers):
+    """记忆模块客户端（function 级，用例结束自动清理其创建的记忆）。"""
+    client = MemoryAPI(http, base_url, auth_headers)
+    yield client
+    client.cleanup()

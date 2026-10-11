@@ -18,3 +18,7 @@ TIMEOUT = 10
 # 固定测试账号（登录态复用：session 级只登录一次，供鉴权用例共享）
 TEST_USERNAME = os.getenv("LIFEARCHIVE_TEST_USER", "testpilot_user")
 TEST_PASSWORD = os.getenv("LIFEARCHIVE_TEST_PASS", "Test@123456")
+
+# 第二个测试账号（越权用例用：模拟另一个用户）
+OTHER_USERNAME = os.getenv("LIFEARCHIVE_OTHER_USER", "testpilot_user2")
+OTHER_PASSWORD = os.getenv("LIFEARCHIVE_OTHER_PASS", "Test@123456")
